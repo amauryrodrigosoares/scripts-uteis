@@ -2,6 +2,8 @@ import os
 import sys
 import datetime
 
+from exclude_patterns import prune_excluded_dirs, should_exclude_file
+
 # --- Constantes de Configuração ---
 # Estes são os tipos de arquivos que queremos categorizar claramente
 # Você pode expandir ou modificar estas listas conforme a necessidade do seu projeto
@@ -47,6 +49,26 @@ def get_file_category(file_name):
             return "Configuração"
         return "Outro"
 
+
+def preparar_pasta_de_saida(caminho_projeto):
+    """
+    Cria uma pasta organizada para salvar os relatórios da execução atual.
+    Retorna o caminho absoluto dessa nova pasta.
+    """
+    nome_projeto = os.path.basename(os.path.normpath(caminho_projeto))
+    if not nome_projeto:
+        nome_projeto = "projeto_desconhecido"
+
+    nome_projeto = ''.join(c if c.isalnum() or c in ['-', '_'] else '_' for c in nome_projeto)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nome_pasta_execucao = f"relatorio_{nome_projeto}_{timestamp}"
+
+    diretorio_do_script = os.path.dirname(os.path.abspath(__file__))
+    caminho_saida = os.path.join(diretorio_do_script, "relatorios", nome_pasta_execucao)
+    os.makedirs(caminho_saida, exist_ok=True)
+    return caminho_saida
+
+
 def map_project_structure(folder_path):
     """
     Mapeia a estrutura de pastas e arquivos de um projeto, listando nomes e tipos.
@@ -56,20 +78,13 @@ def map_project_structure(folder_path):
         print(f"Erro: O caminho '{folder_path}' não é um diretório válido.")
         return
 
-    # --- Definição do Nome do Arquivo de Relatório ---
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Sanitiza o nome da pasta para o nome do arquivo
-    safe_folder_name = os.path.normpath(folder_path).replace(os.sep, '-').strip('-')
-    safe_folder_name = ''.join(c if c.isalnum() or c in ['-', '_'] else '_' for c in safe_folder_name)
-    
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    report_filename = f"project-structure-map-{safe_folder_name}-{timestamp}.txt"
-    report_filepath = os.path.join(script_dir, report_filename)
+    # --- Definição da Pasta de Saída e Nome do Relatório ---
+    output_dir = preparar_pasta_de_saida(folder_path)
+    report_filepath = os.path.join(output_dir, "estrutura_do_projeto.txt")
     # --- Fim da Definição ---
 
     print(f"Iniciando mapeamento da estrutura do projeto em: {folder_path}")
+    print(f"Os arquivos gerados serão salvos em: {output_dir}")
     print(f"O relatório será salvo em: {report_filepath}")
     print("-----------------------------------")
     print("")
@@ -82,8 +97,11 @@ def map_project_structure(folder_path):
         report_file.write("Símbolos: [D] = Diretório, [F] = Arquivo\n")
         report_file.write("-------------------------------------------------------------------\n\n")
 
-        # Percorre a árvore de diretórios
+        # Percorre a árvore de diretórios (ignora .git, IDEs, node_modules, etc.)
         for root, dirs, files in os.walk(folder_path):
+            prune_excluded_dirs(dirs)
+            visible_files = [f for f in files if not should_exclude_file(f, include_env_files=True)]
+
             # Calcula o nível de indentação para a formatação da árvore
             # +1 para a própria pasta base para que não comece sem indentação
             level = root.replace(folder_path, '').count(os.sep)
@@ -92,13 +110,13 @@ def map_project_structure(folder_path):
             # Escreve o diretório atual
             report_file.write(f"{indent}[D] {os.path.basename(root)}/\n")
 
-            # Lista arquivos neste diretório
-            for file_name in sorted(files): # Opcional: ordenar arquivos para consistência
+            # Lista arquivos neste diretório (omitindo sensíveis)
+            for file_name in sorted(visible_files):
                 file_category = get_file_category(file_name)
                 report_file.write(f"{indent}    [F] {file_name} (Tipo: {file_category})\n")
-            
+
             # Adiciona uma linha em branco para melhor legibilidade entre diretórios grandes
-            if files or dirs: # Se houver arquivos ou subdiretórios neste nível, adiciona espaço
+            if visible_files or dirs:
                 report_file.write("\n")
 
         report_file.write("-------------------------------------------------------------------\n")

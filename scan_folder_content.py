@@ -2,6 +2,8 @@ import os
 import sys
 import datetime
 
+from exclude_patterns import is_env_file, prune_excluded_dirs, should_exclude_file
+
 # --- Constantes de Configuração ---
 MAX_REPORT_FILE_SIZE_BYTES = 185 * 1024 * 1024 # 185 MB por arquivo de relatório
 # Buffer para garantir que não ultrapasse muito o limite (evita que um arquivo pequeno quebre o limite)
@@ -12,7 +14,7 @@ TEXT_EXTENSIONS = ('.txt', '.php', '.js', '.jsx', '.json', '.xml', '.html', '.cs
                    '.md', '.yml', '.yaml', '.conf', '.log', '.csv', '.tsv', 
                    '.ini', '.sh', '.py', '.rb', '.java', '.c', '.cpp', '.h', '.hpp',
                    '.ts', '.tsx', '.vue', '.go', '.rs', '.swift', '.kt', '.sql')
-TEXT_FILENAMES_NO_EXT = ('Dockerfile', '.env', 'Makefile', 'LICENSE', 'README', 'CHANGELOG',
+TEXT_FILENAMES_NO_EXT = ('Dockerfile', 'Makefile', 'LICENSE', 'README', 'CHANGELOG',
                          'package.json', 'yarn.lock', 'pnpm-lock.yaml', 'composer.json',
                          'Gemfile', 'Rakefile', '.gitignore', '.gitattributes', '.editorconfig')
 BINARY_EXTENSIONS = ('.zip', '.gz', '.tar', '.rar', '.7z', '.bz2', '.tgz', '.mp3', 
@@ -25,9 +27,62 @@ BINARY_EXTENSIONS = ('.zip', '.gz', '.tar', '.rar', '.7z', '.bz2', '.tgz', '.mp3
                      '.swp', '.swo', '.pyc', '.pyo', '.lock')
 # --- Fim das Constantes ---
 
-def get_report_file_path(base_name, part_number, script_dir):
+
+def higienizar_env(filepath):
+    """
+    Lê um arquivo .env, extrai apenas as chaves e oculta os valores.
+    """
+    linhas_higienizadas = []
+
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            linhas_higienizadas.append(f"--- INÍCIO DO ARQUIVO HIGIENIZADO: {filepath} ---")
+
+            for linha in f:
+                linha = linha.strip()
+                # Pula linhas vazias ou comentários puros
+                if not linha or linha.startswith('#'):
+                    continue
+
+                # Se tem o sinal de '=', separa a chave do valor
+                if '=' in linha:
+                    chave = linha.split('=', 1)[0].strip()
+                    # Adiciona a chave e um aviso de que o valor foi removido
+                    linhas_higienizadas.append(f"{chave}=[OCULTADO_POR_SEGURANCA]")
+                else:
+                    # Caso seja um export solto sem valor (ex: em scripts bash)
+                    linhas_higienizadas.append(linha)
+
+            linhas_higienizadas.append("--- FIM DO ARQUIVO ---")
+
+    except Exception as e:
+        return f"Erro ao ler {filepath}: {str(e)}"
+
+    return "\n".join(linhas_higienizadas)
+
+
+def preparar_pasta_de_saida(caminho_projeto):
+    """
+    Cria uma pasta organizada para salvar os relatórios da execução atual.
+    Retorna o caminho absoluto dessa nova pasta.
+    """
+    nome_projeto = os.path.basename(os.path.normpath(caminho_projeto))
+    if not nome_projeto:
+        nome_projeto = "projeto_desconhecido"
+
+    nome_projeto = ''.join(c if c.isalnum() or c in ['-', '_'] else '_' for c in nome_projeto)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nome_pasta_execucao = f"relatorio_{nome_projeto}_{timestamp}"
+
+    diretorio_do_script = os.path.dirname(os.path.abspath(__file__))
+    caminho_saida = os.path.join(diretorio_do_script, "relatorios", nome_pasta_execucao)
+    os.makedirs(caminho_saida, exist_ok=True)
+    return caminho_saida
+
+
+def get_report_file_path(output_dir, part_number):
     """Gera o caminho completo para uma parte do arquivo de relatório."""
-    return os.path.join(script_dir, f"{base_name}-parte{part_number}.txt")
+    return os.path.join(output_dir, f"conteudo_parte{part_number}.txt")
 
 def scan_folder_and_report_split(folder_path):
     """
@@ -38,15 +93,8 @@ def scan_folder_and_report_split(folder_path):
         print(f"Erro: O caminho '{folder_path}' não é um diretório válido.")
         return
 
-    # --- Configuração do Nome Base do Relatório ---
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    safe_folder_name = os.path.normpath(folder_path).replace(os.sep, '-').strip('-')
-    safe_folder_name = ''.join(c if c.isalnum() or c in ['-', '_'] else '_' for c in safe_folder_name)
-    
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    report_name_base = f"scan-report-{safe_folder_name}-{timestamp}"
+    # --- Configuração da Pasta de Saída ---
+    output_dir = preparar_pasta_de_saida(folder_path)
     # --- Fim da Configuração ---
 
     # --- Gerenciamento de Arquivos de Relatório ---
@@ -59,7 +107,7 @@ def scan_folder_and_report_split(folder_path):
             report_file.close() # Fecha o arquivo atual antes de abrir um novo
             print(f"Parte do relatório concluída: {report_file.name}")
 
-        report_file_path = get_report_file_path(report_name_base, current_part_number, script_dir)
+        report_file_path = get_report_file_path(output_dir, current_part_number)
         report_file = open(report_file_path, 'w', encoding='utf-8')
         
         report_file.write(f"--- Relatório de Escaneamento de Pasta (Parte {current_part_number}): {folder_path} ---\n")
@@ -73,23 +121,35 @@ def scan_folder_and_report_split(folder_path):
     # --- Fim do Gerenciamento de Arquivos ---
 
     print(f"Iniciando escaneamento da pasta: {folder_path}")
-    print(f"O relatório será salvo em múltiplas partes (max {MAX_REPORT_FILE_SIZE_BYTES / (1024*1024):.0f} MB por parte) na pasta do script.")
+    print(f"Os arquivos gerados serão salvos em: {output_dir}")
+    print(f"O relatório será salvo em múltiplas partes (max {MAX_REPORT_FILE_SIZE_BYTES / (1024*1024):.0f} MB por parte).")
     print("-----------------------------------")
     print("")
 
-    for root, _, files in os.walk(folder_path):
+    for root, dirs, files in os.walk(folder_path):
+        prune_excluded_dirs(dirs)
         for file_name in files:
+            if should_exclude_file(file_name, include_env_files=True):
+                continue
             file_path = os.path.join(root, file_name)
-            
+
             base_name = os.path.basename(file_path)
             _, file_extension = os.path.splitext(file_name)
             file_extension = file_extension.lower()
 
-            should_display_content = False
             content_to_write = "" # Variável para acumular o texto do bloco atual
 
             # --- Preparação do conteúdo para o relatório ---
-            if file_extension in BINARY_EXTENSIONS:
+            if is_env_file(file_name):
+                sanitized_env = higienizar_env(file_path)
+                if not sanitized_env.endswith('\n'):
+                    sanitized_env += '\n'
+                content_to_write = (
+                    f"--- Caminho do arquivo (ENV HIGIENIZADO): {file_path} ---\n"
+                    f"{sanitized_env}"
+                    f"--- Fim do conteúdo higienizado de {base_name} ---\n\n"
+                )
+            elif file_extension in BINARY_EXTENSIONS:
                 try:
                     file_size = os.path.getsize(file_path)
                     content_to_write = (
@@ -104,7 +164,6 @@ def scan_folder_and_report_split(folder_path):
                         f"--- Fim do resumo de {base_name} ---\n\n"
                     )
             elif base_name in TEXT_FILENAMES_NO_EXT or file_extension in TEXT_EXTENSIONS:
-                should_display_content = True
                 try:
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                         file_content = f.read()
@@ -168,12 +227,12 @@ def scan_folder_and_report_split(folder_path):
         print(f"Parte final do relatório concluída: {report_file.name}")
 
     print("Escaneamento concluído.")
-    print(f"Relatório(s) salvo(s) com sucesso na pasta do script, com base em: {report_name_base}")
+    print(f"Relatório(s) salvo(s) com sucesso em: {output_dir}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Uso: python scan_folder_split_report.py <caminho_da_pasta>")
-        print("Exemplo: python scan_folder_split_report.py /home/usuario/meus_documentos")
+        print("Uso: python scan_folder_content.py <caminho_da_pasta>")
+        print("Exemplo: python scan_folder_content.py /home/usuario/meus_documentos")
         sys.exit(1)
 
     target_folder = sys.argv[1]
