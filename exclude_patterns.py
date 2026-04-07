@@ -1,6 +1,7 @@
 """
 Regras compartilhadas para ignorar pastas sensíveis/lixo e arquivos com credenciais
-nos relatórios gerados por map_project_structure e scan_folder_content.
+nos relatórios gerados por map_project e scan_folder (antes: map_project_structure,
+scan_folder_content).
 """
 import os
 

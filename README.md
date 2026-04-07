@@ -9,10 +9,10 @@ Ambos os scripts **ignoram pastas e arquivos sensíveis/irrelevantes** ao gerar 
 
 ## 🚀 Scripts Disponíveis
 
-### 📄 `scan_folder_content.py`
-Este script escaneia uma pasta e suas subpastas, extraindo o **conteúdo de arquivos de texto** específicos. Ele é inteligente o suficiente para **ignorar arquivos binários** (como ZIPs ou imagens) e, o mais importante, **divide o relatório final em várias partes**, caso ele fique muito grande (o limite padrão é 185MB por parte). Arquivos e diretórios listados em `exclude_patterns.py` **não entram** no relatório (nem caminho nem conteúdo), com uma exceção de segurança: arquivos `.env` e `.env.*` entram somente em modo **higienizado** (apenas chaves, sem valores).
+### 📄 `scan_folder.py`
+Este script escaneia uma pasta e suas subpastas, extraindo o **conteúdo de arquivos de texto** específicos. Ele é inteligente o suficiente para **ignorar arquivos binários** (como ZIPs ou imagens) e, o mais importante, **divide o relatório final em várias partes**, caso ele fique muito grande (o limite padrão é 100MB por parte). Arquivos e diretórios listados em `exclude_patterns.py` **não entram** no relatório (nem caminho nem conteúdo), com uma exceção de segurança: arquivos `.env` e `.env.*` entram somente em modo **higienizado** (apenas chaves, sem valores).
 
-### 🌳 `map_project_structure.py`
+### 🌳 `map_project.py`
 Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto. Ele lista todas as pastas e, dentro delas, cada arquivo, mostrando apenas seu nome e tipo (ex: "Código-Fonte", "Configuração"). Ele **não extrai o conteúdo dos arquivos**, focando puramente na organização do projeto. As **mesmas regras de exclusão** de `exclude_patterns.py` se aplicam aqui, mas com uma exceção: arquivos `.env` e `.env.*` são exibidos na árvore por nome.
 
 ### 📎 `exclude_patterns.py`
@@ -30,23 +30,25 @@ Regras padrão atuais:
 
 | Arquivo | Função |
 |--------|--------|
-| `scan_folder_content.py` | Lê texto de arquivos permitidos e gera relatório(ies) em partes |
-| `map_project_structure.py` | Gera árvore de diretórios com tipos de arquivo |
+| `scan_folder.py` | Lê texto de arquivos permitidos e gera relatório(ies) em partes |
+| `map_project.py` | Gera árvore de diretórios com tipos de arquivo |
 | `exclude_patterns.py` | Listas e funções de exclusão (IDE, Git, build, lockfiles, mídia e segredos) |
+| `scan_folder_content.py` | Legado: redireciona para `scan_folder.py` |
+| `map_project_structure.py` | Legado: redireciona para `map_project.py` |
 
-Os três `.py` devem ficar **na mesma pasta** para o `import` funcionar.
+Os arquivos `.py` usados na execução devem ficar **na mesma pasta** que `exclude_patterns.py` para o `import` funcionar.
 
 ---
 
 ## ✨ Como Eles Podem te Ajudar
 
-### Para `scan_folder_content.py`:
+### Para `scan_folder.py`:
 * **Foco no Conteúdo Relevante**: Extrai apenas o que importa (código, logs, configurações), ignorando lixo.
 * **Relatórios Gerenciáveis**: Chega de arquivos gigantes que travam seu editor! O relatório é dividido em partes menores e mais fáceis de abrir e analisar.
 * **Identificação Clara**: Delimitadores visuais no relatório facilitam a navegação entre o conteúdo de diferentes arquivos.
 * **Nomenclatura Inteligente**: Os relatórios são nomeados automaticamente com o caminho do projeto e um timestamp, para que você nunca se perca.
 
-### Para `map_project_structure.py`:
+### Para `map_project.py`:
 * **Visão Geral Rápida**: Tenha um entendimento instantâneo da hierarquia do projeto.
 * **Organização para LLMs**: Ótimo para modelos de linguagem que precisam "compreender" a estrutura de um repositório antes de analisar o código.
 * **Formato Amigável**: A formatação em árvore com indentação e símbolos (`[D]` para diretório, `[F]` para arquivo) é super fácil de ler.
@@ -60,37 +62,37 @@ Você só precisa ter o **Python 3** instalado no seu sistema Linux. Nada mais! 
 
 ### Instalação
 Não tem instalação! É só baixar os arquivos:
-1.  **Baixe os arquivos**: Salve `scan_folder_content.py`, `map_project_structure.py` e `exclude_patterns.py` na mesma pasta.
+1.  **Baixe os arquivos**: Salve `scan_folder.py`, `map_project.py` e `exclude_patterns.py` na mesma pasta (opcional: mantenha os wrappers legados se precisar de compatibilidade).
 
 ### Como Usar
 
-O jeito mais simples é ir até a pasta onde estão os três `.py` e executar os comandos abaixo. Também funciona chamar o script pelo **caminho absoluto** (por exemplo `python3 /opt/scripts-uteis/scan_folder_content.py /meu/projeto`), desde que `exclude_patterns.py` continue na mesma pasta que o script que você executa.
+O jeito mais simples é ir até a pasta onde estão os scripts e executar os comandos abaixo. Também funciona chamar pelo **caminho absoluto** (por exemplo `python3 /opt/scripts-uteis/scan_folder.py /meu/projeto`), desde que `exclude_patterns.py` continue na mesma pasta que o script que você executa.
 
-#### 1. Para escanear o conteúdo do projeto (`scan_folder_content.py`)
+#### 1. Para escanear o conteúdo do projeto (`scan_folder.py`)
 
 ```bash
-python3 scan_folder_content.py /caminho/para/a/pasta/do/seu/projeto
+python3 scan_folder.py /caminho/para/a/pasta/do/seu/projeto
 ```
 
 **Exemplo prático:**
 ```bash
-python3 scan_folder_content.py /home/usuario/meu_app_backend
+python3 scan_folder.py /home/usuario/meu_app_backend
 # Se o caminho tiver espaços, coloque entre aspas:
-python3 scan_folder_content.py "/home/usuario/pasta com espaço no nome"
+python3 scan_folder.py "/home/usuario/pasta com espaço no nome"
 ```
-Você verá o progresso no terminal e, ao final, os arquivos de relatório serão gerados em uma pasta dedicada dentro de `relatorios/`, com nomes como `conteudo_parte1.txt`, `conteudo_parte2.txt`, etc.
+Você verá o progresso no terminal e, ao final, os arquivos de relatório serão gerados em uma pasta dedicada dentro de `relatorios/`, com nomes como `conteudo_parte1_meu_app_backend.txt`, `conteudo_parte2_meu_app_backend.txt`, etc.
 
-#### 2. Para mapear a estrutura do projeto (`map_project_structure.py`)
+#### 2. Para mapear a estrutura do projeto (`map_project.py`)
 
 ```bash
-python3 map_project_structure.py /caminho/para/a/pasta/do/seu/projeto
+python3 map_project.py /caminho/para/a/pasta/do/seu/projeto
 ```
 
 **Exemplo prático:**
 ```bash
-python3 map_project_structure.py /home/usuario/site_institucional
+python3 map_project.py /home/usuario/site_institucional
 # Se o caminho tiver espaços, coloque entre aspas:
-python3 map_project_structure.py "/home/usuario/site institucional"
+python3 map_project.py "/home/usuario/site institucional"
 ```
 O script vai informar onde o relatório de estrutura será salvo. O arquivo gerado terá o nome fixo `estrutura_do_projeto.txt` dentro da pasta da execução.
 
@@ -108,8 +110,8 @@ Exemplo de saída:
 relatorios/
 └── relatorio_meu_app_backend_20250610_124500/
     ├── estrutura_do_projeto.txt
-    ├── conteudo_parte1.txt
-    └── conteudo_parte2.txt
+    ├── conteudo_parte1_meu_app_backend.txt
+    └── conteudo_parte2_meu_app_backend.txt
 ```
 
 Isso permite rodar os scripts várias vezes, em projetos diferentes, sem sobrescrever relatórios antigos.
@@ -128,14 +130,14 @@ Você pode ajustar o comportamento dos scripts editando diretamente os arquivos 
 * `should_exclude_file(..., include_env_files=True)`: permite liberar `.env` por contexto de uso.
 * `SENSITIVE_EXTENSIONS`: extensões e regras extras para segredos/certificados.
 
-### Em `scan_folder_content.py`:
-* `MAX_REPORT_FILE_SIZE_BYTES`: O tamanho máximo (em bytes) de cada parte do relatório de saída (padrão: 185 MB).
+### Em `scan_folder.py`:
+* `MAX_REPORT_FILE_SIZE_BYTES`: O tamanho máximo (em bytes) de cada parte do relatório de saída (padrão: 100 MB).
 * `TEXT_EXTENSIONS`: As extensões de arquivos que o script deve tentar ler o conteúdo.
 * `TEXT_FILENAMES_NO_EXT`: Nomes de arquivos específicos que o script deve ler o conteúdo.
 * `BINARY_EXTENSIONS`: Extensões de arquivos que o script **nunca** deve tentar ler o conteúdo (são binários).
 * `higienizar_env(filepath)`: lê `.env`/`.env.*` e grava apenas `CHAVE=[OCULTADO_POR_SEGURANCA]`.
 
-### Em `map_project_structure.py`:
+### Em `map_project.py`:
 * As listas `PROGRAMMING_FILES`, `CONFIG_FILES`, `DOCUMENT_FILES`, `IMAGE_FILES`, `ARCHIVE_FILES` — defina como o script categoriza os diferentes tipos de arquivos do seu projeto.
 
 ---
