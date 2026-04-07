@@ -100,7 +100,10 @@ def map_project_structure(folder_path):
         # Percorre a árvore de diretórios (ignora .git, IDEs, node_modules, etc.)
         for root, dirs, files in os.walk(folder_path):
             prune_excluded_dirs(dirs)
-            visible_files = [f for f in files if not should_exclude_file(f, include_env_files=True)]
+            visible_files = [
+                f for f in files
+                if not should_exclude_file(f, include_env_files=True, for_content_scan=False)
+            ]
 
             # Calcula o nível de indentação para a formatação da árvore
             # +1 para a própria pasta base para que não comece sem indentação

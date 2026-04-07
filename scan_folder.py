@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import datetime
@@ -84,14 +85,90 @@ def get_report_file_path(output_dir, part_number, nome_projeto):
     """Gera o caminho completo para uma parte do arquivo de relatório."""
     return os.path.join(output_dir, f"conteudo_parte{part_number}_{nome_projeto}.txt")
 
-def scan_folder_and_report_split(folder_path):
+
+def _build_content_block_for_file(file_path, file_name):
+    """Monta o texto a ser gravado no relatório para um único arquivo."""
+    base_name = os.path.basename(file_path)
+    _, file_extension = os.path.splitext(file_name)
+    file_extension = file_extension.lower()
+
+    if is_env_file(file_name):
+        sanitized_env = higienizar_env(file_path)
+        if not sanitized_env.endswith('\n'):
+            sanitized_env += '\n'
+        return (
+            f"--- Caminho do arquivo (ENV HIGIENIZADO): {file_path} ---\n"
+            f"{sanitized_env}"
+            f"--- Fim do conteúdo higienizado de {base_name} ---\n\n"
+        )
+    if file_extension in BINARY_EXTENSIONS:
+        try:
+            file_size = os.path.getsize(file_path)
+            return (
+                f"--- Caminho do arquivo (BINÁRIO): {file_path} ---\n"
+                f"[Conteúdo não exibido: Arquivo binário conhecido. Tamanho: {file_size / (1024*1024):.2f} MB]\n"
+                f"--- Fim do resumo de {base_name} ---\n\n"
+            )
+        except OSError as e:
+            return (
+                f"--- Caminho do arquivo (BINÁRIO): {file_path} ---\n"
+                f"[Conteúdo não exibido: Arquivo binário conhecido. Erro ao obter tamanho: {e}]\n"
+                f"--- Fim do resumo de {base_name} ---\n\n"
+            )
+    if base_name in TEXT_FILENAMES_NO_EXT or file_extension in TEXT_EXTENSIONS:
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                file_content = f.read()
+                if not file_content.endswith('\n'):
+                    file_content += '\n'
+
+                return (
+                    f"--- Caminho do arquivo (TEXTO): {file_path} ---\n"
+                    f"{file_content}"
+                    f"--- Fim do conteúdo de {base_name} ---\n\n"
+                )
+        except OSError as e:
+            return (
+                f"--- Caminho do arquivo (TEXTO): {file_path} ---\n"
+                f"[ERRO AO ACESSAR ARQUIVO: {e}]\n"
+                f"--- Fim do conteúdo de {base_name} ---\n\n"
+            )
+        except Exception as e:
+            return (
+                f"--- Caminho do arquivo (TEXTO): {file_path} ---\n"
+                f"[ERRO AO LER CONTEÚDO: {e}]\n"
+                f"--- Fim do conteúdo de {base_name} ---\n\n"
+            )
+    try:
+        file_size = os.path.getsize(file_path)
+        return (
+            f"--- Caminho do arquivo (OUTRO TIPO): {file_path} ---\n"
+            f"[Conteúdo não exibido: Tipo de arquivo não configurado para leitura. Tamanho: {file_size / (1024*1024):.2f} MB]\n"
+            f"--- Fim do resumo de {base_name} ---\n\n"
+        )
+    except OSError as e:
+        return (
+            f"--- Caminho do arquivo (OUTRO TIPO): {file_path} ---\n"
+            f"[Conteúdo não exibido: Tipo de arquivo não configurado para leitura. Erro ao obter tamanho: {e}]\n"
+            f"--- Fim do resumo de {base_name} ---\n\n"
+        )
+
+
+def scan_folder_and_report_split(folder_path, recursive=False):
     """
     Escaneia uma pasta e salva o relatório em múltiplos arquivos, cada um com tamanho máximo.
-    Exibe o conteúdo apenas para arquivos de texto específicos, ignorando binários.
+    Por padrão só inclui arquivos na raiz de folder_path; use recursive=True para toda a árvore.
     """
     if not os.path.isdir(folder_path):
         print(f"Erro: O caminho '{folder_path}' não é um diretório válido.")
         return
+
+    folder_path = os.path.abspath(folder_path)
+    modo_relatorio = (
+        "Modo: recursivo (toda a árvore de subpastas)"
+        if recursive
+        else "Modo: somente raiz (apenas arquivos diretos nesta pasta, sem subpastas)"
+    )
 
     # --- Configuração da Pasta de Saída ---
     output_dir, nome_projeto = preparar_pasta_de_saida(folder_path)
@@ -111,6 +188,7 @@ def scan_folder_and_report_split(folder_path):
         report_file = open(report_file_path, 'w', encoding='utf-8')
 
         report_file.write(f"--- Relatório de Escaneamento de Pasta (Parte {current_part_number}): {folder_path} ---\n")
+        report_file.write(f"{modo_relatorio}\n")
         report_file.write(f"Gerado em: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         report_file.write(f"Tamanho máximo por parte: {MAX_REPORT_FILE_SIZE_BYTES / (1024*1024):.0f} MB.\n")
         report_file.write("-------------------------------------------------------------------\n\n")
@@ -121,103 +199,41 @@ def scan_folder_and_report_split(folder_path):
     # --- Fim do Gerenciamento de Arquivos ---
 
     print(f"Iniciando escaneamento da pasta: {folder_path}")
+    print(modo_relatorio)
     print(f"Os arquivos gerados serão salvos em: {output_dir}")
     print(f"O relatório será salvo em múltiplas partes (max {MAX_REPORT_FILE_SIZE_BYTES / (1024*1024):.0f} MB por parte).")
     print("-----------------------------------")
     print("")
 
-    for root, dirs, files in os.walk(folder_path):
-        prune_excluded_dirs(dirs)
-        for file_name in files:
-            if should_exclude_file(file_name, include_env_files=True):
-                continue
-            file_path = os.path.join(root, file_name)
+    def iter_file_jobs():
+        if recursive:
+            for root, dirs, files in os.walk(folder_path):
+                prune_excluded_dirs(dirs)
+                for file_name in files:
+                    if should_exclude_file(file_name, include_env_files=True, for_content_scan=True):
+                        continue
+                    yield os.path.join(root, file_name), file_name
+        else:
+            try:
+                for file_name in sorted(os.listdir(folder_path)):
+                    file_path = os.path.join(folder_path, file_name)
+                    if not os.path.isfile(file_path):
+                        continue
+                    if should_exclude_file(file_name, include_env_files=True, for_content_scan=True):
+                        continue
+                    yield file_path, file_name
+            except OSError as e:
+                print(f"Erro ao listar a pasta raiz '{folder_path}': {e}")
 
-            base_name = os.path.basename(file_path)
-            _, file_extension = os.path.splitext(file_name)
-            file_extension = file_extension.lower()
+    for file_path, file_name in iter_file_jobs():
+        content_to_write = _build_content_block_for_file(file_path, file_name)
 
-            content_to_write = "" # Variável para acumular o texto do bloco atual
+        content_bytes_length = len(content_to_write.encode('utf-8'))
+        if (report_file.tell() + content_bytes_length) > (MAX_REPORT_FILE_SIZE_BYTES - SIZE_CHECK_BUFFER_BYTES):
+            current_part_number += 1
+            open_new_report_part()
 
-            # --- Preparação do conteúdo para o relatório ---
-            if is_env_file(file_name):
-                sanitized_env = higienizar_env(file_path)
-                if not sanitized_env.endswith('\n'):
-                    sanitized_env += '\n'
-                content_to_write = (
-                    f"--- Caminho do arquivo (ENV HIGIENIZADO): {file_path} ---\n"
-                    f"{sanitized_env}"
-                    f"--- Fim do conteúdo higienizado de {base_name} ---\n\n"
-                )
-            elif file_extension in BINARY_EXTENSIONS:
-                try:
-                    file_size = os.path.getsize(file_path)
-                    content_to_write = (
-                        f"--- Caminho do arquivo (BINÁRIO): {file_path} ---\n"
-                        f"[Conteúdo não exibido: Arquivo binário conhecido. Tamanho: {file_size / (1024*1024):.2f} MB]\n"
-                        f"--- Fim do resumo de {base_name} ---\n\n"
-                    )
-                except OSError as e:
-                    content_to_write = (
-                        f"--- Caminho do arquivo (BINÁRIO): {file_path} ---\n"
-                        f"[Conteúdo não exibido: Arquivo binário conhecido. Erro ao obter tamanho: {e}]\n"
-                        f"--- Fim do resumo de {base_name} ---\n\n"
-                    )
-            elif base_name in TEXT_FILENAMES_NO_EXT or file_extension in TEXT_EXTENSIONS:
-                try:
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        file_content = f.read()
-                        if not file_content.endswith('\n'):
-                            file_content += '\n'
-
-                        content_to_write = (
-                            f"--- Caminho do arquivo (TEXTO): {file_path} ---\n"
-                            f"{file_content}"
-                            f"--- Fim do conteúdo de {base_name} ---\n\n"
-                        )
-                except OSError as e:
-                    content_to_write = (
-                        f"--- Caminho do arquivo (TEXTO): {file_path} ---\n"
-                        f"[ERRO AO ACESSAR ARQUIVO: {e}]\n"
-                        f"--- Fim do conteúdo de {base_name} ---\n\n"
-                    )
-                except Exception as e:
-                    content_to_write = (
-                        f"--- Caminho do arquivo (TEXTO): {file_path} ---\n"
-                        f"[ERRO AO LER CONTEÚDO: {e}]\n"
-                        f"--- Fim do conteúdo de {base_name} ---\n\n"
-                    )
-            else:
-                try:
-                    file_size = os.path.getsize(file_path)
-                    content_to_write = (
-                        f"--- Caminho do arquivo (OUTRO TIPO): {file_path} ---\n"
-                        f"[Conteúdo não exibido: Tipo de arquivo não configurado para leitura. Tamanho: {file_size / (1024*1024):.2f} MB]\n"
-                        f"--- Fim do resumo de {base_name} ---\n\n"
-                    )
-                except OSError as e:
-                    content_to_write = (
-                        f"--- Caminho do arquivo (OUTRO TIPO): {file_path} ---\n"
-                        f"[Conteúdo não exibido: Tipo de arquivo não configurado para leitura. Erro ao obter tamanho: {e}]\n"
-                        f"--- Fim do resumo de {base_name} ---\n\n"
-                    )
-            # --- Fim da preparação do conteúdo ---
-
-            # --- Lógica de Quebra de Arquivo de Relatório (mais precisa) ---
-            # Converte o conteúdo a ser escrito para bytes para verificar o tamanho
-            # Assume UTF-8, o que é seguro para a maioria dos casos.
-            content_bytes_length = len(content_to_write.encode('utf-8'))
-
-            # Se o tamanho atual do arquivo MAIS o tamanho do próximo bloco de conteúdo
-            # exceder o limite, abre uma nova parte.
-            # O buffer adiciona uma margem para que a quebra ocorra um pouco antes do limite.
-            if (report_file.tell() + content_bytes_length) > (MAX_REPORT_FILE_SIZE_BYTES - SIZE_CHECK_BUFFER_BYTES):
-                current_part_number += 1
-                open_new_report_part()
-            # --- Fim da Lógica de Quebra ---
-
-            # Escreve o conteúdo preparado no arquivo de relatório atual
-            report_file.write(content_to_write)
+        report_file.write(content_to_write)
 
     # Garante que a última parte do relatório seja fechada
     if report_file:
@@ -229,11 +245,24 @@ def scan_folder_and_report_split(folder_path):
     print("Escaneamento concluído.")
     print(f"Relatório(s) salvo(s) com sucesso em: {output_dir}")
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Uso: python3 scan_folder.py <caminho_da_pasta>")
-        print("Exemplo: python3 scan_folder.py /home/usuario/meus_documentos")
-        sys.exit(1)
 
-    target_folder = sys.argv[1]
-    scan_folder_and_report_split(target_folder)
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Gera relatório de conteúdo de arquivos de um diretório.",
+    )
+    parser.add_argument(
+        "pasta",
+        help="Caminho da pasta do projeto a escanear",
+    )
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        action="store_true",
+        help="Incluir subpastas (padrão: só arquivos na raiz da pasta)",
+    )
+    args = parser.parse_args(argv)
+    scan_folder_and_report_split(os.path.abspath(args.pasta), recursive=args.recursive)
+
+
+if __name__ == "__main__":
+    main()

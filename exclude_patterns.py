@@ -64,24 +64,68 @@ EXCLUDED_FILE_NAMES = frozenset({
     'id_dsa',
 })
 
+# Extensões omitidas apenas no relatório de conteúdo (scan_folder).
+# No mapa de estrutura (map_project) esses arquivos continuam listados para contexto.
 IGNORED_EXTENSIONS = frozenset({
-    # Imagens e mídia
+    # Imagens
     '.png',
     '.jpg',
     '.jpeg',
     '.gif',
     '.svg',
     '.ico',
+    '.webp',
+    '.bmp',
+    '.tiff',
+    '.tif',
+    '.heic',
+    '.heif',
+    '.avif',
+    '.psd',
+    '.xcf',
+    # Vídeo
     '.mp4',
+    '.m4v',
+    '.mov',
+    '.avi',
+    '.mkv',
+    '.webm',
+    '.wmv',
+    '.flv',
+    '.mpeg',
+    '.mpg',
+    '.3gp',
+    '.ogv',
+    # Áudio
     '.mp3',
-    # Binários e compactados
+    '.wav',
+    '.flac',
+    '.aac',
+    '.wma',
+    '.ogg',
+    '.m4a',
+    '.opus',
+    # Compactados e imagens de disco
     '.zip',
     '.tar',
     '.gz',
+    '.tgz',
+    '.bz2',
+    '.xz',
+    '.rar',
+    '.7z',
+    '.cab',
+    '.lz4',
+    '.zst',
+    '.iso',
+    '.dmg',
+    '.img',
+    # Binários comuns
     '.exe',
     '.dll',
     '.so',
     '.pyc',
+    '.dylib',
     # Logs e bancos locais
     '.log',
     '.sqlite',
@@ -109,8 +153,19 @@ def is_env_file(file_name: str) -> bool:
     return lowered_name == '.env' or lowered_name.startswith('.env.')
 
 
-def should_exclude_file(file_name: str, include_env_files: bool = False) -> bool:
-    """True se o arquivo não deve aparecer nos relatórios (nome apenas)."""
+def should_exclude_file(
+    file_name: str,
+    include_env_files: bool = False,
+    for_content_scan: bool = False,
+) -> bool:
+    """
+    True se o arquivo não deve aparecer no relatório (decisão só pelo nome).
+
+    for_content_scan:
+      False (map_project): omite credenciais/segredos e lockfiles, mas mantém
+        mídia, zip, logs etc. na árvore para contexto.
+      True (scan_folder): aplica também IGNORED_EXTENSIONS (não entram no dump de conteúdo).
+    """
     lowered_name = file_name.lower()
     _, ext = os.path.splitext(lowered_name)
 
@@ -122,7 +177,7 @@ def should_exclude_file(file_name: str, include_env_files: bool = False) -> bool
         return True
     if lowered_name.startswith('.env.') and lowered_name not in ALLOWED_ENV_STYLE_FILES:
         return True
-    if ext in IGNORED_EXTENSIONS:
+    if for_content_scan and ext in IGNORED_EXTENSIONS:
         return True
     if ext in SENSITIVE_EXTENSIONS:
         return True

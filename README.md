@@ -10,17 +10,17 @@ Ambos os scripts **ignoram pastas e arquivos sensíveis/irrelevantes** ao gerar 
 ## 🚀 Scripts Disponíveis
 
 ### 📄 `scan_folder.py`
-Este script escaneia uma pasta e suas subpastas, extraindo o **conteúdo de arquivos de texto** específicos. Ele é inteligente o suficiente para **ignorar arquivos binários** (como ZIPs ou imagens) e, o mais importante, **divide o relatório final em várias partes**, caso ele fique muito grande (o limite padrão é 100MB por parte). Arquivos e diretórios listados em `exclude_patterns.py` **não entram** no relatório (nem caminho nem conteúdo), com uma exceção de segurança: arquivos `.env` e `.env.*` entram somente em modo **higienizado** (apenas chaves, sem valores).
+Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **100 MB** por parte). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`--recursive`** ou **`-r`**. Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves).
 
 ### 🌳 `map_project.py`
-Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto. Ele lista todas as pastas e, dentro delas, cada arquivo, mostrando apenas seu nome e tipo (ex: "Código-Fonte", "Configuração"). Ele **não extrai o conteúdo dos arquivos**, focando puramente na organização do projeto. As **mesmas regras de exclusão** de `exclude_patterns.py` se aplicam aqui, mas com uma exceção: arquivos `.env` e `.env.*` são exibidos na árvore por nome.
+Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto (**sempre recursivo** em toda a árvore). Ele lista pastas e arquivos com nome e tipo (ex.: "Código-Fonte", "Configuração"), **sem** extrair conteúdo. **Imagens, vídeos, zips e outras extensões “pesadas” entram na árvore** (para contexto). Continuam valendo exclusões de segurança (credenciais, lockfiles, `.pem`, etc.) e `.env` / `.env.*` aparecem por nome.
 
 ### 📎 `exclude_patterns.py`
 Módulo compartilhado — não é executado diretamente. Define o que os dois scripts **deixam de visitar ou listar**. Ajuste este arquivo se o seu projeto usar outras pastas de ferramentas ou nomes de credenciais.
 
 Regras padrão atuais:
 - **Pastas nunca lidas**: `.git`, `.idea`, `.vscode`, `.github`, `node_modules`, `vendor`, `venv`, `.venv`, `dist`, `build`, `out`, `.turbo`, `.next`, `coverage`, `bin`, `pkg`, `__pycache__`, `.pytest_cache`, `.eslintcache`.
-- **Extensões nunca lidas/listadas**: `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.ico`, `.mp4`, `.mp3`, `.zip`, `.tar`, `.gz`, `.exe`, `.dll`, `.so`, `.pyc`, `.log`, `.sqlite`, `.sqlite3`.
+- **Extensões ignoradas só no relatório de conteúdo** (`scan_folder.py`): imagens, áudio/vídeo, compactados, binários comuns, `.log`, `.sqlite`, etc. — lista em `IGNORED_EXTENSIONS`. No **mapa de estrutura** (`map_project.py`) esses arquivos **continuam listados** (só o nome/tipo), para você ver que existem no projeto.
 - **Arquivos específicos ignorados**: `package-lock.json`, `yarn.lock`, `composer.lock`, `go.sum` (além dos já sensíveis como `.npmrc`, chaves e certificados).
 - **Regra especial para `.env`**: quando habilitado no contexto do script, `.env` e `.env.*` são processados com mascaramento de valores.
 
@@ -70,13 +70,24 @@ O jeito mais simples é ir até a pasta onde estão os scripts e executar os com
 
 #### 1. Para escanear o conteúdo do projeto (`scan_folder.py`)
 
+Por padrão, **só a raiz** da pasta (arquivos diretos, sem subpastas):
+
 ```bash
 python3 scan_folder.py /caminho/para/a/pasta/do/seu/projeto
+```
+
+Para incluir **todas as subpastas** (comportamento antigo / projeto inteiro):
+
+```bash
+python3 scan_folder.py --recursive /caminho/para/a/pasta/do/seu/projeto
+# ou
+python3 scan_folder.py /caminho/para/a/pasta/do/seu/projeto -r
 ```
 
 **Exemplo prático:**
 ```bash
 python3 scan_folder.py /home/usuario/meu_app_backend
+python3 scan_folder.py -r /home/usuario/meu_app_backend
 # Se o caminho tiver espaços, coloque entre aspas:
 python3 scan_folder.py "/home/usuario/pasta com espaço no nome"
 ```
@@ -125,12 +136,13 @@ Você pode ajustar o comportamento dos scripts editando diretamente os arquivos 
 ### Em `exclude_patterns.py`:
 * `EXCLUDED_DIR_NAMES`: pastas omitidas dos relatórios (Git/IDE, dependências, build e caches).
 * `EXCLUDED_FILE_NAMES`: arquivos omitidos por nome (ex.: lockfiles grandes e credenciais).
-* `IGNORED_EXTENSIONS`: extensões irrelevantes que nunca devem ser lidas/listadas (mídia, binários, logs e sqlite).
+* `IGNORED_EXTENSIONS`: extensões omitidas **apenas** no dump de conteúdo (`for_content_scan=True`); no mapa de estrutura não se aplicam.
 * `is_env_file()`: identifica `.env` e variantes `.env.*`.
-* `should_exclude_file(..., include_env_files=True)`: permite liberar `.env` por contexto de uso.
+* `should_exclude_file(..., include_env_files=True, for_content_scan=...)`: `for_content_scan=True` no `scan_folder`; `False` no `map_project`.
 * `SENSITIVE_EXTENSIONS`: extensões e regras extras para segredos/certificados.
 
 ### Em `scan_folder.py`:
+* Linha de comando: `python3 scan_folder.py <pasta>` (só raiz) ou `python3 scan_folder.py -r <pasta>` (recursivo).
 * `MAX_REPORT_FILE_SIZE_BYTES`: O tamanho máximo (em bytes) de cada parte do relatório de saída (padrão: 100 MB).
 * `TEXT_EXTENSIONS`: As extensões de arquivos que o script deve tentar ler o conteúdo.
 * `TEXT_FILENAMES_NO_EXT`: Nomes de arquivos específicos que o script deve ler o conteúdo.
