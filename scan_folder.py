@@ -1,7 +1,8 @@
 import argparse
-import os
-import sys
 import datetime
+import os
+import re
+import sys
 
 from exclude_patterns import is_env_file, prune_excluded_dirs, should_exclude_file
 
@@ -11,7 +12,7 @@ MAX_REPORT_FILE_SIZE_BYTES = 100 * 1024 * 1024 # 100 MB por arquivo de relatóri
 # Se o próximo conteúdo (mesmo que pequeno) faria o arquivo ultrapassar o limite, cria uma nova parte
 SIZE_CHECK_BUFFER_BYTES = 50 * 1024 # 50 KB de buffer
 
-TEXT_EXTENSIONS = ('.txt', '.php', '.js', '.jsx', '.json', '.xml', '.html', '.css',
+TEXT_EXTENSIONS = ('.txt', '.php', '.phtml', '.js', '.jsx', '.json', '.xml', '.html', '.css',
                    '.md', '.yml', '.yaml', '.conf', '.log', '.csv', '.tsv',
                    '.ini', '.sh', '.py', '.rb', '.java', '.c', '.cpp', '.h', '.hpp',
                    '.ts', '.tsx', '.vue', '.go', '.rs', '.swift', '.kt')
@@ -81,6 +82,11 @@ def preparar_pasta_de_saida(caminho_projeto):
     return caminho_saida, nome_projeto
 
 
+def _strip_php_open_tag_for_report(text):
+    """Remove <?php do texto só para o relatório (ETL/notebook), case-insensitive. Não altera o arquivo no disco."""
+    return re.sub(r'<\?php', '', text, flags=re.IGNORECASE)
+
+
 def get_report_file_path(output_dir, part_number, nome_projeto):
     """Caminho do arquivo de relatório: sem número se for só a parte 1; com conteudo_N a partir da parte 2."""
     if part_number == 1:
@@ -121,6 +127,8 @@ def _build_content_block_for_file(file_path, file_name):
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 file_content = f.read()
+                if file_extension in ('.php', '.phtml'):
+                    file_content = _strip_php_open_tag_for_report(file_content)
                 if not file_content.endswith('\n'):
                     file_content += '\n'
 
