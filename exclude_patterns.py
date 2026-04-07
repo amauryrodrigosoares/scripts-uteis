@@ -126,8 +126,9 @@ IGNORED_EXTENSIONS = frozenset({
     '.so',
     '.pyc',
     '.dylib',
-    # Logs e bancos locais
+    # Logs, SQL (dumps/migrações costumam ser enormes) e bancos locais
     '.log',
+    '.sql',
     '.sqlite',
     '.sqlite3',
 })

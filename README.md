@@ -10,7 +10,7 @@ Ambos os scripts **ignoram pastas e arquivos sensíveis/irrelevantes** ao gerar 
 ## 🚀 Scripts Disponíveis
 
 ### 📄 `scan_folder.py`
-Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **100 MB** por parte). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`--recursive`** ou **`-r`**. Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves).
+Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **100 MB** por parte). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`-r`**, **`-recursive`** ou **`--recursive`** (equivalentes). Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves).
 
 ### 🌳 `map_project.py`
 Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto (**sempre recursivo** em toda a árvore). Ele lista pastas e arquivos com nome e tipo (ex.: "Código-Fonte", "Configuração"), **sem** extrair conteúdo. **Imagens, vídeos, zips e outras extensões “pesadas” entram na árvore** (para contexto). Continuam valendo exclusões de segurança (credenciais, lockfiles, `.pem`, etc.) e `.env` / `.env.*` aparecem por nome.
@@ -20,7 +20,7 @@ Módulo compartilhado — não é executado diretamente. Define o que os dois sc
 
 Regras padrão atuais:
 - **Pastas nunca lidas**: `.git`, `.idea`, `.vscode`, `.github`, `node_modules`, `vendor`, `venv`, `.venv`, `dist`, `build`, `out`, `.turbo`, `.next`, `coverage`, `bin`, `pkg`, `__pycache__`, `.pytest_cache`, `.eslintcache`.
-- **Extensões ignoradas só no relatório de conteúdo** (`scan_folder.py`): imagens, áudio/vídeo, compactados, binários comuns, `.log`, `.sqlite`, etc. — lista em `IGNORED_EXTENSIONS`. No **mapa de estrutura** (`map_project.py`) esses arquivos **continuam listados** (só o nome/tipo), para você ver que existem no projeto.
+- **Extensões ignoradas só no relatório de conteúdo** (`scan_folder.py`): imagens, áudio/vídeo, compactados, binários comuns, `.log`, `.sql`, `.sqlite`, etc. — lista em `IGNORED_EXTENSIONS`. No **mapa de estrutura** (`map_project.py`) esses arquivos **continuam listados** (só o nome/tipo), para você ver que existem no projeto.
 - **Arquivos específicos ignorados**: `package-lock.json`, `yarn.lock`, `composer.lock`, `go.sum` (além dos já sensíveis como `.npmrc`, chaves e certificados).
 - **Regra especial para `.env`**: quando habilitado no contexto do script, `.env` e `.env.*` são processados com mascaramento de valores.
 
@@ -80,8 +80,9 @@ Para incluir **todas as subpastas** (comportamento antigo / projeto inteiro):
 
 ```bash
 python3 scan_folder.py --recursive /caminho/para/a/pasta/do/seu/projeto
-# ou
+# ou (equivalente)
 python3 scan_folder.py /caminho/para/a/pasta/do/seu/projeto -r
+python3 scan_folder.py /caminho/para/a/pasta/do/seu/projeto -recursive
 ```
 
 **Exemplo prático:**
@@ -91,7 +92,7 @@ python3 scan_folder.py -r /home/usuario/meu_app_backend
 # Se o caminho tiver espaços, coloque entre aspas:
 python3 scan_folder.py "/home/usuario/pasta com espaço no nome"
 ```
-Você verá o progresso no terminal e, ao final, os arquivos de relatório serão gerados em uma pasta dedicada dentro de `relatorios/`, com nomes como `conteudo_parte1_meu_app_backend.txt`, `conteudo_parte2_meu_app_backend.txt`, etc.
+Você verá o progresso no terminal e, ao final, os arquivos de relatório serão gerados em uma pasta dedicada dentro de `relatorios/`. Se couber tudo em um único arquivo (até o limite por parte), o nome é `conteudo_meu_app_backend.txt`. Se houver mais de uma parte, os arquivos passam a ser `conteudo_1_meu_app_backend.txt`, `conteudo_2_meu_app_backend.txt`, etc.
 
 #### 2. Para mapear a estrutura do projeto (`map_project.py`)
 
@@ -121,9 +122,10 @@ Exemplo de saída:
 relatorios/
 └── relatorio_meu_app_backend_20250610_124500/
     ├── estrutura_do_projeto.txt
-    ├── conteudo_parte1_meu_app_backend.txt
-    └── conteudo_parte2_meu_app_backend.txt
+    └── conteudo_meu_app_backend.txt
 ```
+
+(Se o dump de conteúdo for fatiado em mais de um arquivo, os nomes passam a ser `conteudo_1_...`, `conteudo_2_...`, e assim por diante.)
 
 Isso permite rodar os scripts várias vezes, em projetos diferentes, sem sobrescrever relatórios antigos.
 
@@ -142,7 +144,7 @@ Você pode ajustar o comportamento dos scripts editando diretamente os arquivos 
 * `SENSITIVE_EXTENSIONS`: extensões e regras extras para segredos/certificados.
 
 ### Em `scan_folder.py`:
-* Linha de comando: `python3 scan_folder.py <pasta>` (só raiz) ou `python3 scan_folder.py -r <pasta>` (recursivo).
+* Linha de comando: `python3 scan_folder.py <pasta>` (só raiz) ou recursivo com `-r`, `-recursive` ou `--recursive` antes ou depois do caminho.
 * `MAX_REPORT_FILE_SIZE_BYTES`: O tamanho máximo (em bytes) de cada parte do relatório de saída (padrão: 100 MB).
 * `TEXT_EXTENSIONS`: As extensões de arquivos que o script deve tentar ler o conteúdo.
 * `TEXT_FILENAMES_NO_EXT`: Nomes de arquivos específicos que o script deve ler o conteúdo.

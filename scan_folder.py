@@ -14,7 +14,7 @@ SIZE_CHECK_BUFFER_BYTES = 50 * 1024 # 50 KB de buffer
 TEXT_EXTENSIONS = ('.txt', '.php', '.js', '.jsx', '.json', '.xml', '.html', '.css',
                    '.md', '.yml', '.yaml', '.conf', '.log', '.csv', '.tsv',
                    '.ini', '.sh', '.py', '.rb', '.java', '.c', '.cpp', '.h', '.hpp',
-                   '.ts', '.tsx', '.vue', '.go', '.rs', '.swift', '.kt', '.sql')
+                   '.ts', '.tsx', '.vue', '.go', '.rs', '.swift', '.kt')
 TEXT_FILENAMES_NO_EXT = ('Dockerfile', 'Makefile', 'LICENSE', 'README', 'CHANGELOG',
                          'package.json', 'yarn.lock', 'pnpm-lock.yaml', 'composer.json',
                          'Gemfile', 'Rakefile', '.gitignore', '.gitattributes', '.editorconfig')
@@ -82,8 +82,10 @@ def preparar_pasta_de_saida(caminho_projeto):
 
 
 def get_report_file_path(output_dir, part_number, nome_projeto):
-    """Gera o caminho completo para uma parte do arquivo de relatório."""
-    return os.path.join(output_dir, f"conteudo_parte{part_number}_{nome_projeto}.txt")
+    """Caminho do arquivo de relatório: sem número se for só a parte 1; com conteudo_N a partir da parte 2."""
+    if part_number == 1:
+        return os.path.join(output_dir, f"conteudo_{nome_projeto}.txt")
+    return os.path.join(output_dir, f"conteudo_{part_number}_{nome_projeto}.txt")
 
 
 def _build_content_block_for_file(file_path, file_name):
@@ -181,8 +183,13 @@ def scan_folder_and_report_split(folder_path, recursive=False):
     def open_new_report_part():
         nonlocal report_file, current_part_number
         if report_file:
-            report_file.close() # Fecha o arquivo atual antes de abrir um novo
-            print(f"Parte do relatório concluída: {report_file.name}")
+            old_path = report_file.name
+            report_file.close()
+            print(f"Parte do relatório concluída: {old_path}")
+            # Só há mais de um arquivo: renomeia o primeiro (sem sufixo) para conteudo_1_...
+            if current_part_number == 2:
+                dest_parte1 = os.path.join(output_dir, f"conteudo_1_{nome_projeto}.txt")
+                os.rename(old_path, dest_parte1)
 
         report_file_path = get_report_file_path(output_dir, current_part_number, nome_projeto)
         report_file = open(report_file_path, 'w', encoding='utf-8')
@@ -256,6 +263,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "-r",
+        "-recursive",
         "--recursive",
         action="store_true",
         help="Incluir subpastas (padrão: só arquivos na raiz da pasta)",
