@@ -10,7 +10,7 @@ Ambos os scripts **ignoram pastas e arquivos sensíveis/irrelevantes** ao gerar 
 ## 🚀 Scripts Disponíveis
 
 ### 📄 `scan_folder.py`
-Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **100 MB** por parte). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`-r`**, **`-recursive`** ou **`--recursive`** (equivalentes). Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves). Em **`.php`** e **`.phtml`**, o literal de abertura `<?php` é **removido só no texto do relatório** (case-insensitive), para evitar que consumidores tipo XML/notebook quebrem; os arquivos no disco não são alterados.
+Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **5 MB** por parte). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`-r`**, **`-recursive`** ou **`--recursive`** (equivalentes). Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves). Em **`.php`** e **`.phtml`**, o literal de abertura `<?php` é **removido só no texto do relatório** (case-insensitive), para evitar que consumidores tipo XML/notebook quebrem; os arquivos no disco não são alterados.
 
 ### 🌳 `map_project.py`
 Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto (**sempre recursivo** em toda a árvore). Ele lista pastas e arquivos com nome e tipo (ex.: "Código-Fonte", "Configuração"), **sem** extrair conteúdo. **Imagens, vídeos, zips e outras extensões “pesadas” entram na árvore** (para contexto). Continuam valendo exclusões de segurança (credenciais, lockfiles, `.pem`, etc.) e `.env` / `.env.*` aparecem por nome.
@@ -145,7 +145,7 @@ Você pode ajustar o comportamento dos scripts editando diretamente os arquivos 
 
 ### Em `scan_folder.py`:
 * Linha de comando: `python3 scan_folder.py <pasta>` (só raiz) ou recursivo com `-r`, `-recursive` ou `--recursive` antes ou depois do caminho.
-* `MAX_REPORT_FILE_SIZE_BYTES`: O tamanho máximo (em bytes) de cada parte do relatório de saída (padrão: 100 MB).
+* `MAX_REPORT_FILE_SIZE_BYTES`: O tamanho máximo (em bytes) de cada parte do relatório de saída (padrão: 5 MB).
 * `TEXT_EXTENSIONS`: As extensões de arquivos que o script deve tentar ler o conteúdo.
 * `TEXT_FILENAMES_NO_EXT`: Nomes de arquivos específicos que o script deve ler o conteúdo.
 * `BINARY_EXTENSIONS`: Extensões de arquivos que o script **nunca** deve tentar ler o conteúdo (são binários).

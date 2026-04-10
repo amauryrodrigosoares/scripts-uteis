@@ -7,7 +7,7 @@ import sys
 from exclude_patterns import is_env_file, prune_excluded_dirs, should_exclude_file
 
 # --- Constantes de Configuração ---
-MAX_REPORT_FILE_SIZE_BYTES = 100 * 1024 * 1024 # 100 MB por arquivo de relatório
+MAX_REPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024 # 5 MB por arquivo de relatório
 # Buffer para garantir que não ultrapasse muito o limite (evita que um arquivo pequeno quebre o limite)
 # Se o próximo conteúdo (mesmo que pequeno) faria o arquivo ultrapassar o limite, cria uma nova parte
 SIZE_CHECK_BUFFER_BYTES = 50 * 1024 # 50 KB de buffer
