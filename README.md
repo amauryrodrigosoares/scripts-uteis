@@ -13,14 +13,14 @@ Ambos os scripts **ignoram pastas e arquivos sensíveis/irrelevantes** ao gerar 
 Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **5 MB** por parte). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`-r`**, **`-recursive`** ou **`--recursive`** (equivalentes). Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves). Em **`.php`** e **`.phtml`**, o literal de abertura `<?php` é **removido só no texto do relatório** (case-insensitive), para evitar que consumidores tipo XML/notebook quebrem; os arquivos no disco não são alterados.
 
 ### 🌳 `map_project.py`
-Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto (**sempre recursivo** em toda a árvore). Ele lista pastas e arquivos com nome e tipo (ex.: "Código-Fonte", "Configuração"), **sem** extrair conteúdo. **Imagens, vídeos, zips e outras extensões “pesadas” entram na árvore** (para contexto). Continuam valendo exclusões de segurança (credenciais, lockfiles, `.pem`, etc.) e `.env` / `.env.*` aparecem por nome.
+Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto (**sempre recursivo** em toda a árvore). Ele lista pastas e arquivos **pelo nome** (a extensão já identifica o tipo), **sem** extrair conteúdo. **Imagens, vídeos, zips e outras extensões “pesadas” entram na árvore** (para contexto). Continuam valendo exclusões de segurança (credenciais, lockfiles, `.pem`, etc.) e `.env` / `.env.*` aparecem por nome.
 
 ### 📎 `exclude_patterns.py`
 Módulo compartilhado — não é executado diretamente. Define o que os dois scripts **deixam de visitar ou listar**. Ajuste este arquivo se o seu projeto usar outras pastas de ferramentas ou nomes de credenciais.
 
 Regras padrão atuais:
 - **Pastas nunca lidas**: `.git`, `.idea`, `.vscode`, `.github`, `node_modules`, `vendor`, `venv`, `.venv`, `dist`, `build`, `out`, `.turbo`, `.next`, `coverage`, `bin`, `pkg`, `__pycache__`, `.pytest_cache`, `.eslintcache`.
-- **Extensões ignoradas só no relatório de conteúdo** (`scan_folder.py`): imagens, áudio/vídeo, compactados, binários comuns, `.log`, `.sql`, `.sqlite`, etc. — lista em `IGNORED_EXTENSIONS`. No **mapa de estrutura** (`map_project.py`) esses arquivos **continuam listados** (só o nome/tipo), para você ver que existem no projeto.
+- **Extensões ignoradas só no relatório de conteúdo** (`scan_folder.py`): imagens, áudio/vídeo, compactados, binários comuns, `.log`, `.sql`, `.sqlite`, etc. — lista em `IGNORED_EXTENSIONS`. No **mapa de estrutura** (`map_project.py`) esses arquivos **continuam listados** (só o nome), para você ver que existem no projeto.
 - **Arquivos específicos ignorados**: `package-lock.json`, `yarn.lock`, `composer.lock`, `go.sum` (além dos já sensíveis como `.npmrc`, chaves e certificados).
 - **Regra especial para `.env`**: quando habilitado no contexto do script, `.env` e `.env.*` são processados com mascaramento de valores.
 
@@ -31,7 +31,7 @@ Regras padrão atuais:
 | Arquivo | Função |
 |--------|--------|
 | `scan_folder.py` | Lê texto de arquivos permitidos e gera relatório(ies) em partes |
-| `map_project.py` | Gera árvore de diretórios com tipos de arquivo |
+| `map_project.py` | Gera `estrutura_notebook_lm.md` (árvore mínima `D`/`F` para Notebook LM) |
 | `exclude_patterns.py` | Listas e funções de exclusão (IDE, Git, build, lockfiles, mídia e segredos) |
 | `scan_folder_content.py` | Legado: redireciona para `scan_folder.py` |
 | `map_project_structure.py` | Legado: redireciona para `map_project.py` |
@@ -50,8 +50,7 @@ Os arquivos `.py` usados na execução devem ficar **na mesma pasta** que `exclu
 
 ### Para `map_project.py`:
 * **Visão Geral Rápida**: Tenha um entendimento instantâneo da hierarquia do projeto.
-* **Organização para LLMs**: Ótimo para modelos de linguagem que precisam "compreender" a estrutura de um repositório antes de analisar o código.
-* **Formato Amigável**: A formatação em árvore com indentação e símbolos (`[D]` para diretório, `[F]` para arquivo) é super fácil de ler.
+* **Notebook LM / tokens**: Gera um único `estrutura_notebook_lm.md` — o arquivo é Markdown só no sentido da extensão; o conteúdo é texto puro (sem títulos, YAML nem cercas), uma linha por pasta (`D caminho/`) ou arquivo (`F caminho`), caminhos em POSIX. Caracteres que costumam quebrar ingestão (quebras de linha, crase, controle) são normalizados nos caminhos.
 
 ---
 
@@ -106,7 +105,7 @@ python3 map_project.py /home/usuario/site_institucional
 # Se o caminho tiver espaços, coloque entre aspas:
 python3 map_project.py "/home/usuario/site institucional"
 ```
-O script vai informar onde o relatório de estrutura será salvo. O arquivo gerado terá o nome fixo `estrutura_do_projeto.txt` dentro da pasta da execução.
+O script vai informar onde o relatório de estrutura será salvo. O arquivo gerado terá o nome fixo `estrutura_notebook_lm.md` dentro da pasta da execução.
 
 ---
 
@@ -121,7 +120,7 @@ Exemplo de saída:
 ```text
 relatorios/
 └── relatorio_meu_app_backend_20250610_124500/
-    ├── estrutura_do_projeto.txt
+    ├── estrutura_notebook_lm.md
     └── conteudo_meu_app_backend.txt
 ```
 
@@ -152,7 +151,7 @@ Você pode ajustar o comportamento dos scripts editando diretamente os arquivos 
 * `higienizar_env(filepath)`: lê `.env`/`.env.*` e grava apenas `CHAVE=[OCULTADO_POR_SEGURANCA]`.
 
 ### Em `map_project.py`:
-* As listas `PROGRAMMING_FILES`, `CONFIG_FILES`, `DOCUMENT_FILES`, `IMAGE_FILES`, `ARCHIVE_FILES` — defina como o script categoriza os diferentes tipos de arquivos do seu projeto.
+* Saída mínima em `estrutura_notebook_lm.md` (formato `D`/`F`); ajuste `_safe_tree_path` se precisar de outra regra de sanitização de nomes.
 
 ---
 
