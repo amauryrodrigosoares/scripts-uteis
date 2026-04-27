@@ -10,7 +10,7 @@ Ambos os scripts **ignoram pastas e arquivos sensíveis/irrelevantes** ao gerar 
 ## 🚀 Scripts Disponíveis
 
 ### 📄 `scan_folder.py`
-Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **5 MB** por parte). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`-r`**, **`-recursive`** ou **`--recursive`** (equivalentes). Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves). Em **`.php`** e **`.phtml`**, o literal de abertura `<?php` é **removido só no texto do relatório** (case-insensitive), para evitar que consumidores tipo XML/notebook quebrem; os arquivos no disco não são alterados.
+Este script extrai o **conteúdo de arquivos de texto** (e resumos de binários conhecidos) para um relatório em partes (limite padrão **5 MB** por parte), em **Markdown** (`.md`) ou **XML** (`.xml`). **Por padrão só olha a raiz** da pasta que você passou: não desce em subpastas. Para varrer o projeto inteiro, use **`-r`**, **`-recursive`** ou **`--recursive`** (equivalentes). Arquivos filtrados por `exclude_patterns.py` não entram no relatório de conteúdo; `.env` / `.env.*` entram só **higienizados** (só chaves). Cada arquivo no relatório usa o cabeçalho `# Arquivo:` (caminho absoluto). **Export Markdown e Notebook LM (padrão):** ficheiros **`.php` / `.phtml`** vêm em **formato plano** (sem cercas `` ``` ``: separadores `---------- inicio-corpo ----------` / `fim` e prefixo `| ` por linha), com preâmbulo, **omissão** de `<?php` e **tokens** para `<?=` / short `<?`. **Go, JavaScript, TypeScript** e outras linguagens mantêm **cercas** `` ```lang `` … `` ``` ``. Use **`--raw-php`** para PHP literal em cercas `` ```php ``; use **`--nl-plain`** só se quiser formato plano **em todas** as linguagens. Os ficheiros no disco **nunca** são alterados.
 
 ### 🌳 `map_project.py`
 Já este script gera um **mapa detalhado da estrutura de diretórios** do seu projeto (**sempre recursivo** em toda a árvore). Ele lista pastas e arquivos **pelo nome** (a extensão já identifica o tipo), **sem** extrair conteúdo. **Imagens, vídeos, zips e outras extensões “pesadas” entram na árvore** (para contexto). Continuam valendo exclusões de segurança (credenciais, lockfiles, `.pem`, etc.) e `.env` / `.env.*` aparecem por nome.
@@ -30,7 +30,7 @@ Regras padrão atuais:
 
 | Arquivo | Função |
 |--------|--------|
-| `scan_folder.py` | Lê texto de arquivos permitidos e gera relatório(ies) em partes |
+| `scan_folder.py` | Lê texto permitido e gera relatório(ies) em partes (`.md` ou `.xml`); NLM: **PHP plano** por defeito, outras linguagens com `` ```lang ``; **`--nl-plain`** força plano em tudo |
 | `map_project.py` | Gera `estrutura_notebook_lm.md` (árvore mínima `D`/`F` para Notebook LM) |
 | `exclude_patterns.py` | Listas e funções de exclusão (IDE, Git, build, lockfiles, mídia e segredos) |
 | `scan_folder_content.py` | Legado: redireciona para `scan_folder.py` |
@@ -45,7 +45,8 @@ Os arquivos `.py` usados na execução devem ficar **na mesma pasta** que `exclu
 ### Para `scan_folder.py`:
 * **Foco no Conteúdo Relevante**: Extrai apenas o que importa (código, logs, configurações), ignorando lixo.
 * **Relatórios Gerenciáveis**: Chega de arquivos gigantes que travam seu editor! O relatório é dividido em partes menores e mais fáceis de abrir e analisar.
-* **Identificação Clara**: Delimitadores visuais no relatório facilitam a navegação entre o conteúdo de diferentes arquivos.
+* **Blocos por arquivo**: Cabeçalho `# Arquivo:` (caminho absoluto). **PHP/phtml** em formato plano (NLM); **outras linguagens** com cercas `` ```lang ``.
+* **Notebook LM (Markdown, padrão)**: Cada parte `.md` explica o **formato misto**. Em `.php`/`.phtml`: `<?php` **omitido**; `__NLM_PHP_ECHO_OPEN__` e `__NLM_PHP_SHORT_OPEN__` substituem `<?=` e short `<?`+espaço. **`--raw-php`**: PHP de volta a cercas literais. **`--nl-plain`**: força formato plano **em todas** as linguagens (só se o NLM também cortar Go/JS/etc.).
 * **Nomenclatura Inteligente**: Os relatórios são nomeados automaticamente com o caminho do projeto e um timestamp, para que você nunca se perca.
 
 ### Para `map_project.py`:
@@ -90,8 +91,27 @@ python3 scan_folder.py /home/usuario/meu_app_backend
 python3 scan_folder.py -r /home/usuario/meu_app_backend
 # Se o caminho tiver espaços, coloque entre aspas:
 python3 scan_folder.py "/home/usuario/pasta com espaço no nome"
+# PHP literal nas cercas (sem máscara NLM):
+python3 scan_folder.py --raw-php -r /home/usuario/meu_app_backend
+# Saída XML em vez de Markdown:
+python3 scan_folder.py -xml -r /home/usuario/meu_app_backend
+# Formato plano em todas as linguagens (só se o NLM cortar também Go/JS/etc.):
+python3 scan_folder.py --nl-plain -r /home/usuario/meu_app_backend
 ```
-Você verá o progresso no terminal e, ao final, os arquivos de relatório serão gerados em uma pasta dedicada dentro de `relatorios/`. Se couber tudo em um único arquivo (até o limite por parte), o nome é `conteudo_meu_app_backend.txt`. Se houver mais de uma parte, os arquivos passam a ser `conteudo_1_meu_app_backend.txt`, `conteudo_2_meu_app_backend.txt`, etc.
+Você verá o progresso no terminal e, ao final, os arquivos de relatório serão gerados em uma pasta dedicada dentro de `relatorios/`. Em Markdown (padrão), se couber tudo em um único arquivo, o nome é `conteudo_meu_app_backend.md`. Se houver mais de uma parte, os ficheiros passam a ser `conteudo_1_meu_app_backend.md`, `conteudo_2_meu_app_backend.md`, etc. Com **`-xml`**, a extensão é `.xml`.
+
+---
+
+## Notebook LM: só aparecem títulos e não há código?
+
+**Diagnóstico rápido (cerca de 1 minuto):** abra o ficheiro `conteudo_*.md` **no disco** (Cursor, VS Code, ou `less` no terminal). Procure o primeiro `# Arquivo: …` e o que vem a seguir.
+
+- Se existir um bloco entre `` ``` `` … `` ``` `` **com linhas de código**, ou entre `---------- inicio-corpo ----------` e `---------- fim-corpo ----------` **com linhas começadas por `| `**, o `scan_folder.py` **gravou o conteúdo**. Se no Notebook LM só vê títulos, o problema é **ingestão ou visualização no LM** (resumo do chat, sanitização, etc.), não “o script não leu os ficheiros”.
+- Se **no disco** também não houver corpo entre dois `# Arquivo:`, aí sim vale rever o comando (por exemplo `-r` se o código está em subpastas) ou exclusões em `exclude_patterns.py`.
+
+**O que experimentar no LM:** com o padrão actual, **PHP já vai em formato plano**; volte a gerar com **`python3 scan_folder.py -r …`** (sem flags) e confirme no disco. Se **todas** as linguagens forem cortadas pelo NLM, use **`--nl-plain`**. **Sem terminal:** copie do IDE para notas no LM (texto plano) e use o `map_project` só para a árvore.
+
+---
 
 #### 2. Para mapear a estrutura do projeto (`map_project.py`)
 
@@ -121,10 +141,10 @@ Exemplo de saída:
 relatorios/
 └── relatorio_meu_app_backend_20250610_124500/
     ├── estrutura_notebook_lm.md
-    └── conteudo_meu_app_backend.txt
+    └── conteudo_meu_app_backend.md
 ```
 
-(Se o dump de conteúdo for fatiado em mais de um arquivo, os nomes passam a ser `conteudo_1_...`, `conteudo_2_...`, e assim por diante.)
+(Se o dump de conteúdo for fatiado em mais de um arquivo, os nomes passam a ser `conteudo_1_...md`, `conteudo_2_...md`, ou `.xml` se usou `-xml`.)
 
 Isso permite rodar os scripts várias vezes, em projetos diferentes, sem sobrescrever relatórios antigos.
 
@@ -143,12 +163,13 @@ Você pode ajustar o comportamento dos scripts editando diretamente os arquivos 
 * `SENSITIVE_EXTENSIONS`: extensões e regras extras para segredos/certificados.
 
 ### Em `scan_folder.py`:
-* Linha de comando: `python3 scan_folder.py <pasta>` (só raiz) ou recursivo com `-r`, `-recursive` ou `--recursive` antes ou depois do caminho.
+* Linha de comando: `python3 scan_folder.py <pasta>` (só raiz) ou recursivo com `-r`, `-recursive` ou `--recursive` antes ou depois do caminho. Formato: `-md` (padrão) ou `-xml`. **Notebook LM:** preâmbulo; **PHP/phtml** em formato plano (sem `` ``` ``) com omissão/máscara; outras linguagens com cercas; **`--raw-php`** devolve PHP a `` ```php `` literal; **`--nl-plain`** força plano **em tudo**.
+* Constantes de token NLM (apenas export MD): `NLM_PHP_ECHO_TOKEN`, `NLM_PHP_SHORT_TOKEN` em `scan_folder.py` — ajuste se quiser outros marcadores; `<?php` não usa token (é removido do texto exportado).
 * `MAX_REPORT_FILE_SIZE_BYTES`: O tamanho máximo (em bytes) de cada parte do relatório de saída (padrão: 5 MB).
 * `TEXT_EXTENSIONS`: As extensões de arquivos que o script deve tentar ler o conteúdo.
 * `TEXT_FILENAMES_NO_EXT`: Nomes de arquivos específicos que o script deve ler o conteúdo.
 * `BINARY_EXTENSIONS`: Extensões de arquivos que o script **nunca** deve tentar ler o conteúdo (são binários).
-* `higienizar_env(filepath)`: lê `.env`/`.env.*` e grava apenas `CHAVE=[OCULTADO_POR_SEGURANCA]`.
+* Função interna equivalente à higienização de `.env`: lê `.env`/`.env.*` e coloca no relatório (cerca `` ```dotenv ``) apenas `CHAVE=[OCULTADO_POR_SEGURANCA]`.
 
 ### Em `map_project.py`:
 * Saída mínima em `estrutura_notebook_lm.md` (formato `D`/`F`); ajuste `_safe_tree_path` se precisar de outra regra de sanitização de nomes.
