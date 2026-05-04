@@ -5,6 +5,8 @@ Este repositório contém dois scripts Python práticos, desenvolvidos para te a
 
 Ambos os scripts **ignoram pastas e arquivos sensíveis/irrelevantes** ao gerar relatórios. As regras ficam centralizadas em `exclude_patterns.py` para você ajustar em um único lugar.
 
+**Notebook LM:** para **melhores resultados**, use primeiro o **`map_project.py`** (árvore `estrutura_notebook_lm.md`) e só depois o **`scan_folder.py`** (conteúdo `conteudo_*.md`). O modelo assim associa caminhos e hierarquia ao código com menos ambiguidade. O detalhe desta ordem repete-se abaixo em «Como usar».
+
 ---
 
 ## 🚀 Scripts Disponíveis
@@ -43,6 +45,7 @@ Os arquivos `.py` usados na execução devem ficar **na mesma pasta** que `exclu
 ## ✨ Como Eles Podem te Ajudar
 
 ### Para `scan_folder.py`:
+* **Notebook LM:** depois de carregar o mapa (`map_project.py`), adicione os `conteudo_*.md` como fontes — ver secção **«Notebook LM: ordem recomendada»** em «Como usar».
 * **Foco no Conteúdo Relevante**: Extrai apenas o que importa (código, logs, configurações), ignorando lixo.
 * **Relatórios Gerenciáveis**: Chega de arquivos gigantes que travam seu editor! O relatório é dividido em partes menores e mais fáceis de abrir e analisar.
 * **Blocos por arquivo**: Cabeçalho `# Arquivo:` (caminho absoluto). **PHP/phtml** em formato plano (NLM); **outras linguagens** com cercas `` ```lang ``.
@@ -52,6 +55,7 @@ Os arquivos `.py` usados na execução devem ficar **na mesma pasta** que `exclu
 ### Para `map_project.py`:
 * **Visão Geral Rápida**: Tenha um entendimento instantâneo da hierarquia do projeto.
 * **Notebook LM / tokens**: Gera um único `estrutura_notebook_lm.md` — o arquivo é Markdown só no sentido da extensão; o conteúdo é texto puro (sem títulos, YAML nem cercas), uma linha por pasta (`D caminho/`) ou arquivo (`F caminho`), caminhos em POSIX. Caracteres que costumam quebrar ingestão (quebras de linha, crase, controle) são normalizados nos caminhos.
+* **Notebook LM:** carregue **esta fonte primeiro** (antes dos `conteudo_*.md` do `scan_folder.py`) para o modelo ter a árvore antes de ler o código.
 
 ---
 
@@ -67,6 +71,13 @@ Não tem instalação! É só baixar os arquivos:
 ### Como Usar
 
 O jeito mais simples é ir até a pasta onde estão os scripts e executar os comandos abaixo. Também funciona chamar pelo **caminho absoluto** (por exemplo `python3 /opt/scripts-uteis/scan_folder.py /meu/projeto`), desde que `exclude_patterns.py` continue na mesma pasta que o script que você executa.
+
+### Notebook LM: ordem recomendada (melhores resultados)
+
+1. **Executar `map_project.py` primeiro** na pasta do projeto e **carregar** o `estrutura_notebook_lm.md` no Notebook LM. Assim o modelo recebe a **árvore** (`D` / `F`) com todos os caminhos e nomes de ficheiros, de forma compacta.
+2. **Executar `scan_folder.py` a seguir** (normalmente com **`-r`** no mesmo caminho do projeto) e **carregar** o(s) ficheiro(s) `conteudo_*.md` como fontes adicionais.
+
+Com **estrutura antes do conteúdo**, o LM costuma **situar-se melhor** no repositório, ligar perguntas do tipo «onde está X?» aos ficheiros certos e usar o código com menos erros de contexto. Se inverter a ordem ou só subir o dump de conteúdo, ainda funciona, mas a experiência tende a ser pior.
 
 #### 1. Para escanear o conteúdo do projeto (`scan_folder.py`)
 
@@ -109,7 +120,7 @@ Você verá o progresso no terminal e, ao final, os arquivos de relatório serã
 - Se existir um bloco entre `` ``` `` … `` ``` `` **com linhas de código**, ou entre `---------- inicio-corpo ----------` e `---------- fim-corpo ----------` **com linhas começadas por `| `**, o `scan_folder.py` **gravou o conteúdo**. Se no Notebook LM só vê títulos, o problema é **ingestão ou visualização no LM** (resumo do chat, sanitização, etc.), não “o script não leu os ficheiros”.
 - Se **no disco** também não houver corpo entre dois `# Arquivo:`, aí sim vale rever o comando (por exemplo `-r` se o código está em subpastas) ou exclusões em `exclude_patterns.py`.
 
-**O que experimentar no LM:** com o padrão actual, **PHP já vai em formato plano**; volte a gerar com **`python3 scan_folder.py -r …`** (sem flags) e confirme no disco. Se **todas** as linguagens forem cortadas pelo NLM, use **`--nl-plain`**. **Sem terminal:** copie do IDE para notas no LM (texto plano) e use o `map_project` só para a árvore.
+**O que experimentar no LM:** confirme que carregou **`estrutura_notebook_lm.md` antes** dos `conteudo_*.md` (ver secção **«Notebook LM: ordem recomendada»** acima). Com o padrão atual, **PHP já vai em formato plano**; volte a gerar com **`python3 scan_folder.py -r …`** (sem flags) e confirme no disco. Se **todas** as linguagens forem cortadas pelo NLM, use **`--nl-plain`**. **Sem terminal:** copie do IDE para notas no LM (texto plano) e use o `map_project` só para a árvore.
 
 ---
 
